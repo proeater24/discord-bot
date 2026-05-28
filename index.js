@@ -45,26 +45,40 @@ async function registerCommands() {
   const GUILD_ID = "1505645963870736384";
 
   const commands = [];
+
+  console.log("📦 Loading command files...");
+
   const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
 
   for (const file of commandFiles) {
+    console.log("➡ Loading:", file);
+
     const command = await import(`./commands/${file}`);
     commands.push(command.default.data.toJSON());
   }
 
+  console.log(`📊 Total commands loaded: ${commands.length}`);
+
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   try {
-    console.log("🔄 Updating slash commands...");
+    console.log("🧹 Clearing old commands...");
+
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: [] }
+    );
+
+    console.log("📤 Uploading new commands...");
 
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
 
-    console.log("✅ Slash commands synced!");
+    console.log("✅ Slash commands fully refreshed!");
   } catch (err) {
-    console.error("❌ Command sync error:", err);
+    console.error("❌ ERROR REGISTERING COMMANDS:", err);
   }
 }
 
