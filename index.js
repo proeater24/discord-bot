@@ -2,7 +2,9 @@ import "dotenv/config";
 import {
   Client,
   GatewayIntentBits,
-  Collection
+  Collection,
+  REST,
+  Routes
 } from "discord.js";
 
 import fs from "fs";
@@ -18,6 +20,7 @@ const client = new Client({
 
 client.commands = new Collection();
 
+/* ================= LOAD COMMANDS ================= */
 function loadCommands(dir) {
   const files = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -36,12 +39,43 @@ function loadCommands(dir) {
   }
 }
 
-loadCommands(path.join(__dirname, "commands"));
+/* ================= REGISTER SLASH COMMANDS ================= */
+async function registerCommands() {
+  const CLIENT_ID = "1509525176851890247";
+  const GUILD_ID = "1505645963870736384";
 
-client.once("ready", () => {
+  const commands = [];
+  const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
+
+  for (const file of commandFiles) {
+    const command = await import(`./commands/${file}`);
+    commands.push(command.default.data.toJSON());
+  }
+
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+
+  try {
+    console.log("🔄 Updating slash commands...");
+
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands }
+    );
+
+    console.log("✅ Slash commands synced!");
+  } catch (err) {
+    console.error("❌ Command sync error:", err);
+  }
+}
+
+/* ================= BOT READY ================= */
+client.once("ready", async () => {
   console.log(`✅ Bot online as ${client.user.tag}`);
+
+  await registerCommands(); // 🔥 AUTO DEPLOY HERE
 });
 
+/* ================= COMMAND HANDLER ================= */
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
